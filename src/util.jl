@@ -180,7 +180,7 @@ end
 
 function vec(vm::VectorModel, v::Integer, s::Integer)
 	x = vm.In[:, s, v]
-	return x / norm(x)
+	return x / (norm(x) + 0.001f0) # small value of 0.001f0 added by VS in case norm(x) = 0
 end
 
 function vec(vm::VectorModel, dict::Dictionary, w::AbstractString, s::Integer)
@@ -199,8 +199,12 @@ function nearest_neighbors(vm::VectorModel, dict::Dictionary, word::DenseArray{T
 				continue
 			end
 			in_vs = view(vm.In, :, s, v)
-			sim[s, v] = dot(in_vs, word) / norm(in_vs)
+			sim[s, v] = dot(in_vs, word) / (norm(in_vs) + 0.001f0) # small value of 0.001f0 added by VS to avoid assertion error
+#             sim[s, v] = isnan(norm(in_vs)) ? -Inf : dot(in_vs, word) / norm(in_vs) #added by VS
+#             println(dict.id2word[s], "*********", dict.id2word[v], ":", sim[s, v], ":", norm(in_vs)) #added by VS
 			@assert(!isnan(sim[s, v]), "NaN found, $s, $(dict.id2word[v])")
+            continue #added by VS
+            
 		end
 	end
 	for (v, s) in exclude
@@ -210,9 +214,9 @@ function nearest_neighbors(vm::VectorModel, dict::Dictionary, word::DenseArray{T
 	topSim = zeros(Tsf, K)
 
 	for k in 1:K
-		curr_max = argmax(sim)
-		topSim[k] = sim[curr_max[1], curr_max[2]]
-		sim[curr_max[1], curr_max[2]] = -Inf
+		curr_max = argmax(sim) #returns the row and column with highest value
+		topSim[k] = sim[curr_max[1], curr_max[2]] # checks the value at that row and column in sim matrix and store it
+		sim[curr_max[1], curr_max[2]] = -Inf # make the value extremely small so that it doesn't get picked up in next iteration
 
 		top[k] = curr_max
 	end
